@@ -24,7 +24,7 @@ const client = new Client({
     ]
 });
 
-// ================= === PODEŠAVANJA (UBACI SVOJE ID-OVE) ====================
+// ================= === PODEŠAVANJA ====================
 const CONFIG = {
     TOKEN: process.env.DISCORD_TOKEN,
     WELCOME_CHANNEL_ID: '1534981849775079435',
@@ -33,7 +33,6 @@ const CONFIG = {
     TICKET_PANEL_CHANNEL_ID: '1534983734539849950',
     STAFF_ROLE_ID: '1534972198886969434',
     
-    // ID-OVI TVOJIH POSTOJEĆIH KATEGORIJA SA SLIKE:
     CATEGORIES: {
         pitanja: '1534972382379249764',
         donacije: '1534972381032874115',
@@ -44,11 +43,10 @@ const CONFIG = {
         cheater: '1535056980690075678'
     },
     
-    // Slike (po želji zameni linkove)
-    THUMBNAIL_URL: 'https://imgur.com/iswtxsc.png', 
-    TICKET_IMAGE_URL: 'https://imgur.com/a/U6HCK6f.png' 
+    THUMBNAIL_URL: 'https://i.imgur.com/iswtxsc.png', 
+    TICKET_IMAGE_URL: 'https://i.imgur.com/uW673w1.png'
 };
-// =========================================================================
+// ======================================================
 
 client.once('ready', () => {
     console.log(`[USPEH] Bot je online kao: ${client.user.tag}`);
@@ -63,22 +61,10 @@ client.on('guildMemberAdd', async (member) => {
         .setColor('#00FFFF')
         .setThumbnail(CONFIG.THUMBNAIL_URL)
         .addFields(
-            { 
-                name: 'Cuba Roleplay', 
-                value: `Dobrodošao/la, ${member}, na Cuba Roleplay! Nadamo se da ćeš uživati.` 
-            },
-            { 
-                name: 'Pravila', 
-                value: `Sva pravila možete pronaći u kanalu <#${CONFIG.RULES_CHANNEL_ID}>` 
-            },
-            { 
-                name: 'Donacije', 
-                value: `Više informacija o donacijama imate u kanalu <#${CONFIG.DONATIONS_CHANNEL_ID}>` 
-            },
-            { 
-                name: 'TICKET', 
-                value: `Za bilo kakvu pomoć ili pitanje možete otvoriti ticket u kanalu <#${CONFIG.TICKET_PANEL_CHANNEL_ID}>` 
-            }
+            { name: 'Cuba Roleplay', value: `Dobrodošao/la, ${member}, na Cuba Roleplay! Nadamo se da ćeš uživati.` },
+            { name: 'Pravila', value: `Sva pravila možete pronaći u kanalu <#${CONFIG.RULES_CHANNEL_ID}>` },
+            { name: 'Donacije', value: `Više informacija o donacijama imate u kanalu <#${CONFIG.DONATIONS_CHANNEL_ID}>` },
+            { name: 'TICKET', value: `Za bilo kakvu pomoć ili pitanje možete otvoriti ticket u kanalu <#${CONFIG.TICKET_PANEL_CHANNEL_ID}>` }
         )
         .setFooter({ text: 'Cuba Roleplay Team' })
         .setTimestamp();
@@ -86,11 +72,10 @@ client.on('guildMemberAdd', async (member) => {
     await channel.send({ embeds: [welcomeEmbed] });
 });
 
-// 2. TEKSTUALNE KOMANDE (!setup-ticket I !close)
+// 2. KOMANDE (!setup-ticket I !close)
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
 
-    // KOMANDA ZA POSTAVLJANJE PANELA
     if (message.content === '!setup-ticket') {
         if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
 
@@ -123,10 +108,9 @@ client.on('messageCreate', async (message) => {
         );
 
         await message.channel.send({ embeds: [ticketPanelEmbed], components: [row1, row2] });
-        message.delete();
+        message.delete().catch(() => {});
     }
 
-    // KOMANDA ZA ZATVARANJE TIKETA PREKO PORUKE
     if (message.content === '!close') {
         if (!message.member.roles.cache.has(CONFIG.STAFF_ROLE_ID) && !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
             return message.reply('Samo članovi Staff tima mogu zatvoriti tiket!');
@@ -139,7 +123,7 @@ client.on('messageCreate', async (message) => {
     }
 });
 
-// 3. RUKOVANJE TIKETIMA (DUGMAD)
+// 3. RUKOVANJE TIKETIMA
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isButton()) return;
 
@@ -159,7 +143,8 @@ client.on('interactionCreate', async (interaction) => {
         const selected = categoriesData[categoryType];
         if (!selected) return;
 
-        const channelName = `${selected.prefix}-${interaction.user.username}`;
+        const cleanUsername = interaction.user.username.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const channelName = `${selected.prefix}-${cleanUsername}`;
 
         const existingChannel = interaction.guild.channels.cache.find(c => c.name === channelName);
         if (existingChannel) {
@@ -181,11 +166,21 @@ client.on('interactionCreate', async (interaction) => {
                 },
                 {
                     id: interaction.user.id,
-                    allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.AttachFiles]
+                    allow: [
+                        PermissionsBitField.Flags.ViewChannel, 
+                        PermissionsBitField.Flags.SendMessages, 
+                        PermissionsBitField.Flags.AttachFiles,
+                        PermissionsBitField.Flags.ReadMessageHistory
+                    ]
                 },
                 {
                     id: CONFIG.STAFF_ROLE_ID,
-                    allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.AttachFiles]
+                    allow: [
+                        PermissionsBitField.Flags.ViewChannel, 
+                        PermissionsBitField.Flags.SendMessages, 
+                        PermissionsBitField.Flags.AttachFiles,
+                        PermissionsBitField.Flags.ReadMessageHistory
+                    ]
                 }
             ]
         });
@@ -209,8 +204,11 @@ client.on('interactionCreate', async (interaction) => {
                 .setStyle(ButtonStyle.Danger)
         );
 
-        await ticketChannel.send({ content: `<@&${CONFIG.STAFF_ROLE_ID}>` });
-        await ticketChannel.send({ embeds: [ticketEmbed], components: [controlButtons] });
+        await ticketChannel.send({ 
+            content: `<@&${CONFIG.STAFF_ROLE_ID}> | Tiket otvorio: ${interaction.user}`,
+            embeds: [ticketEmbed], 
+            components: [controlButtons] 
+        });
 
         await interaction.editReply({ content: `Vaš ticket (${selected.name}) je uspešno otvoren: ${ticketChannel}` });
     }
