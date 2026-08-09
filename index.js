@@ -44,7 +44,7 @@ const CONFIG = {
     },
     
     THUMBNAIL_URL: 'https://i.imgur.com/iswtxsc.png', 
-    TICKET_IMAGE_URL: 'https://i.imgur.com/uW673w1.png'
+    TICKET_IMAGE_URL: 'https://imgur.com/a/SDtZBUE.png'
 };
 // ======================================================
 
