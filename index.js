@@ -12,7 +12,8 @@ const {
     ButtonBuilder, 
     ButtonStyle, 
     PermissionsBitField, 
-    ChannelType 
+    ChannelType,
+    MessageFlags
 } = require('discord.js');
 
 const client = new Client({
@@ -31,14 +32,26 @@ const CONFIG = {
     RULES_CHANNEL_ID: '1534981980679180300',
     DONATIONS_CHANNEL_ID: '1534972479687364688',
     TICKET_PANEL_CHANNEL_ID: '1534983734539849950',
-    STAFF_ROLE_ID: '1534972198886969434',
+    IP_CHANNEL_ID: '1534981459473993918',
+
+    // ================= ULOGE (ROLES) =================
+    // Zamijeni 'ID_ROLI_...' sa pravim ID-evima uloga s tvojeg servera
+    ROLES: {
+        TICKET_SUPPORT: '1534972197620289636', 
+        DISCORD_DEV: '1535594365391478794',     
+        JEDINI_ZA_DONACIJE: '1534972300384931910',
+        GLAVNI_ZA_STAFF: '1534972173918142484',
+        ELECTRON_AC: '1534972176225140856',
+        GLAVNI_ZA_LIDERE: '1534972180889338056'
+    },
+    // ================================================
     
     CATEGORIES: {
         pitanja: '1534972382379249764',
         donacije: '1534972381032874115',
         staff: '1534972379674181834',
-        unban: '1532208430176145439',
-        org: '1534972383352328223',
+        unban: '1534972383352328223',
+        org: '1535056664468918342',
         zalbe: '1535056821088161832',
         cheater: '1535056980690075678'
     },
@@ -48,7 +61,7 @@ const CONFIG = {
 };
 // ======================================================
 
-client.once('ready', () => {
+client.once('clientReady', () => {
     console.log(`[USPEH] Bot je online kao: ${client.user.tag}`);
 });
 
@@ -58,18 +71,55 @@ client.on('guildMemberAdd', async (member) => {
     if (!channel) return;
 
     const welcomeEmbed = new EmbedBuilder()
-        .setColor('#00FFFF')
-        .setThumbnail(CONFIG.THUMBNAIL_URL)
+        .setColor('#007AFF')
+        .setAuthor({ 
+            name: 'Cuba Roleplay', 
+            iconURL: CONFIG.THUMBNAIL_URL 
+        })
+        .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 256 }))
         .addFields(
-            { name: 'Cuba Roleplay', value: `Dobrodošao/la, ${member}, na Cuba Roleplay! Nadamo se da ćeš uživati.` },
-            { name: 'Pravila', value: `Sva pravila možete pronaći u kanalu <#${CONFIG.RULES_CHANNEL_ID}>` },
-            { name: 'Donacije', value: `Više informacija o donacijama imate u kanalu <#${CONFIG.DONATIONS_CHANNEL_ID}>` },
-            { name: 'TICKET', value: `Za bilo kakvu pomoć ili pitanje možete otvoriti ticket u kanalu <#${CONFIG.TICKET_PANEL_CHANNEL_ID}>` }
+            { 
+                name: 'Pravila', 
+                value: `Sva pravila možeš pronaći u <#${CONFIG.RULES_CHANNEL_ID}>` 
+            },
+            { 
+                name: 'Donacije', 
+                value: `Sve informacije o donacijama možeš pronaći u <#${CONFIG.DONATIONS_CHANNEL_ID}>` 
+            },
+            { 
+                name: 'IP Servera', 
+                value: `IP servera i upute za ulazak možeš pronaći u <#${CONFIG.IP_CHANNEL_ID}>` 
+            }
         )
-        .setFooter({ text: 'Cuba Roleplay Team' })
+        .setFooter({ 
+            text: client.user.username, 
+            iconURL: client.user.displayAvatarURL()
+        })
         .setTimestamp();
 
-    await channel.send({ embeds: [welcomeEmbed] });
+    const buttonsRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setLabel('Otvori Ticket')
+            .setStyle(ButtonStyle.Link)
+            .setURL(`https://discord.com/channels/${member.guild.id}/${CONFIG.TICKET_PANEL_CHANNEL_ID}`)
+            .setEmoji('🎟️'),
+        new ButtonBuilder()
+            .setLabel('Donacije')
+            .setStyle(ButtonStyle.Link)
+            .setURL(`https://discord.com/channels/${member.guild.id}/${CONFIG.DONATIONS_CHANNEL_ID}`)
+            .setEmoji('💸'),
+        new ButtonBuilder()
+            .setLabel('IP Servera')
+            .setStyle(ButtonStyle.Link)
+            .setURL(`https://discord.com/channels/${member.guild.id}/${CONFIG.IP_CHANNEL_ID}`)
+            .setEmoji('🌐')
+    );
+
+    await channel.send({ 
+        content: `${member} Dobrodošli na Cuba Roleplay!`, 
+        embeds: [welcomeEmbed],
+        components: [buttonsRow]
+    }).catch(err => console.error('Greška pri slanju welcome poruke:', err));
 });
 
 // 2. KOMANDE (!setup-ticket I !close)
@@ -112,32 +162,71 @@ client.on('messageCreate', async (message) => {
     }
 
     if (message.content === '!close') {
-        if (!message.member.roles.cache.has(CONFIG.STAFF_ROLE_ID) && !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-            return message.reply('Samo članovi Staff tima mogu zatvoriti tiket!');
+        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+            return message.reply('Samo administracija može ručno zatvoriti tiket komandom!');
         }
 
         await message.channel.send('Tiket će biti obrisan za 5 sekundi...');
-        setTimeout(() => {
-            message.channel.delete().catch(() => {});
+        
+        const channelId = message.channel.id;
+        setTimeout(async () => {
+            const ch = message.guild.channels.cache.get(channelId) || await message.guild.channels.fetch(channelId).catch(() => null);
+            if (ch) ch.delete().catch(() => {});
         }, 5000);
     }
 });
 
-// 3. RUKOVANJE TIKETIMA
+// 3. RUKOVANJE TIKETIMA I PRISTUPNIM DOZVOLAMA
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isButton()) return;
 
     if (interaction.customId.startsWith('ticket_')) {
         const categoryType = interaction.customId.replace('ticket_', '');
         
+        // TAČNO PODEŠENI PRISTUPI SVE ODGOVARAJUĆIM ULOGAMA
         const categoriesData = {
-            'pitanja': { name: 'Pitanja / Pomoć', prefix: 'pitanja', catId: CONFIG.CATEGORIES.pitanja },
-            'donacije': { name: 'Donacije', prefix: 'donacije', catId: CONFIG.CATEGORIES.donacije },
-            'staff': { name: 'Prijava Za Staff', prefix: 'staff', catId: CONFIG.CATEGORIES.staff },
-            'unban': { name: 'Zahtev za unban', prefix: 'unban', catId: CONFIG.CATEGORIES.unban },
-            'org': { name: 'Prijava Org', prefix: 'prijava-org', catId: CONFIG.CATEGORIES.org },
-            'zalbe': { name: 'Žalbe', prefix: 'zalba', catId: CONFIG.CATEGORIES.zalbe },
-            'cheater': { name: 'Prijava Cheatera', prefix: 'cheater', catId: CONFIG.CATEGORIES.cheater }
+            'pitanja': { 
+                name: 'Pitanja / Pomoć', 
+                prefix: 'pitanja', 
+                catId: CONFIG.CATEGORIES.pitanja,
+                allowedRoles: [CONFIG.ROLES.TICKET_SUPPORT, CONFIG.ROLES.DISCORD_DEV]
+            },
+            'donacije': { 
+                name: 'Donacije', 
+                prefix: 'donacije', 
+                catId: CONFIG.CATEGORIES.donacije,
+                allowedRoles: [CONFIG.ROLES.DISCORD_DEV, CONFIG.ROLES.JEDINI_ZA_DONACIJE]
+            },
+            'staff': { 
+                name: 'Prijava Za Staff', 
+                prefix: 'staff', 
+                catId: CONFIG.CATEGORIES.staff,
+                allowedRoles: [CONFIG.ROLES.GLAVNI_ZA_STAFF, CONFIG.ROLES.DISCORD_DEV]
+            },
+            'unban': { 
+                name: 'Zahtev za unban', 
+                prefix: 'unban', 
+                catId: CONFIG.CATEGORIES.unban,
+                allowedRoles: [CONFIG.ROLES.DISCORD_DEV, CONFIG.ROLES.ELECTRON_AC, CONFIG.ROLES.TICKET_SUPPORT]
+            },
+            'org': { 
+                name: 'Prijava Org', 
+                prefix: 'prijava-org', 
+                catId: CONFIG.CATEGORIES.org,
+                allowedRoles: [CONFIG.ROLES.GLAVNI_ZA_LIDERE, CONFIG.ROLES.DISCORD_DEV]
+            },
+            'zalbe': { 
+                name: 'Žalbe', 
+                prefix: 'zalba', 
+                catId: CONFIG.CATEGORIES.zalbe,
+                allowedRoles: [CONFIG.ROLES.DISCORD_DEV, CONFIG.ROLES.GLAVNI_ZA_STAFF]
+            },
+            'cheater': { 
+                name: 'Prijava Cheatera', 
+                prefix: 'cheater', 
+                catId: CONFIG.CATEGORIES.cheater,
+                allowedRoles: [CONFIG.ROLES.DISCORD_DEV, CONFIG.ROLES.TICKET_SUPPORT]
+            }
         };
 
         const selected = categoriesData[categoryType];
@@ -148,10 +237,45 @@ client.on('interactionCreate', async (interaction) => {
 
         const existingChannel = interaction.guild.channels.cache.find(c => c.name === channelName);
         if (existingChannel) {
-            return interaction.reply({ content: `Već imate otvoren ticket u kategoriji **${selected.name}**: ${existingChannel}`, ephemeral: true });
+            return interaction.reply({ 
+                content: `Već imate otvoren ticket u kategoriji **${selected.name}**: ${existingChannel}`, 
+                flags: MessageFlags.Ephemeral 
+            });
         }
 
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+        // Pravljenje permisija za novi kanal
+        const permissionOverwrites = [
+            {
+                id: interaction.guild.id, // Sakrij od ostatka servera
+                deny: [PermissionsBitField.Flags.ViewChannel]
+            },
+            {
+                id: interaction.user.id, // Vidljivo osobi koja je otvorila
+                allow: [
+                    PermissionsBitField.Flags.ViewChannel, 
+                    PermissionsBitField.Flags.SendMessages, 
+                    PermissionsBitField.Flags.AttachFiles,
+                    PermissionsBitField.Flags.ReadMessageHistory
+                ]
+            }
+        ];
+
+        // Dodaj dozvole samo navedenim ulogama
+        selected.allowedRoles.forEach(roleId => {
+            if (roleId && !roleId.startsWith('ID_ROLI_')) {
+                permissionOverwrites.push({
+                    id: roleId,
+                    allow: [
+                        PermissionsBitField.Flags.ViewChannel, 
+                        PermissionsBitField.Flags.SendMessages, 
+                        PermissionsBitField.Flags.AttachFiles,
+                        PermissionsBitField.Flags.ReadMessageHistory
+                    ]
+                });
+            }
+        });
 
         const targetCategory = interaction.guild.channels.cache.get(selected.catId);
 
@@ -159,36 +283,13 @@ client.on('interactionCreate', async (interaction) => {
             name: channelName,
             type: ChannelType.GuildText,
             parent: targetCategory ? targetCategory.id : null,
-            permissionOverwrites: [
-                {
-                    id: interaction.guild.id,
-                    deny: [PermissionsBitField.Flags.ViewChannel]
-                },
-                {
-                    id: interaction.user.id,
-                    allow: [
-                        PermissionsBitField.Flags.ViewChannel, 
-                        PermissionsBitField.Flags.SendMessages, 
-                        PermissionsBitField.Flags.AttachFiles,
-                        PermissionsBitField.Flags.ReadMessageHistory
-                    ]
-                },
-                {
-                    id: CONFIG.STAFF_ROLE_ID,
-                    allow: [
-                        PermissionsBitField.Flags.ViewChannel, 
-                        PermissionsBitField.Flags.SendMessages, 
-                        PermissionsBitField.Flags.AttachFiles,
-                        PermissionsBitField.Flags.ReadMessageHistory
-                    ]
-                }
-            ]
+            permissionOverwrites: permissionOverwrites
         });
 
         const ticketEmbed = new EmbedBuilder()
             .setColor('#00FFFF')
             .setTitle(`🎟️ Tiket - ${selected.name}`)
-            .setDescription(`Zdravo ${interaction.user} !\n\nStaff tim će ti odgovoriti uskoro.\nKoristi dugmad ispod ili komandu **!close** za upravljanje tiketom.`)
+            .setDescription(`Zdravo ${interaction.user} !\n\nNadležni tim će ti odgovoriti uskoro.\nKoristi dugmad ispod ili komandu **!close** za upravljanje tiketom.`)
             .setImage(CONFIG.TICKET_IMAGE_URL);
 
         const controlButtons = new ActionRowBuilder().addComponents(
@@ -204,8 +305,14 @@ client.on('interactionCreate', async (interaction) => {
                 .setStyle(ButtonStyle.Danger)
         );
 
+        // Pinguj dozvoljene uloge unutar novootvorenog tiketa
+        const pingRoles = selected.allowedRoles
+            .filter(r => r && !r.startsWith('ID_ROLI_'))
+            .map(r => `<@&${r}>`)
+            .join(' ');
+
         await ticketChannel.send({ 
-            content: `<@&${CONFIG.STAFF_ROLE_ID}> | Tiket otvorio: ${interaction.user}`,
+            content: `${pingRoles ? pingRoles + ' | ' : ''}Tiket otvorio: ${interaction.user}`,
             embeds: [ticketEmbed], 
             components: [controlButtons] 
         });
@@ -213,18 +320,34 @@ client.on('interactionCreate', async (interaction) => {
         await interaction.editReply({ content: `Vaš ticket (${selected.name}) je uspešno otvoren: ${ticketChannel}` });
     }
 
+    // --- PREUZIMANJE TIKETA ---
     if (interaction.customId === 'claim_ticket') {
-        if (!interaction.member.roles.cache.has(CONFIG.STAFF_ROLE_ID)) {
-            return interaction.reply({ content: 'Samo članovi Staff tima mogu preuzeti tiket!', ephemeral: true });
-        }
+        const originalRow = interaction.message.components[0];
+        const updatedRow = new ActionRowBuilder();
 
-        await interaction.reply({ content: `✋ Tiket je preuzeo/la ${interaction.user}.` });
+        originalRow.components.forEach(component => {
+            const button = ButtonBuilder.from(component);
+            if (button.data.custom_id === 'claim_ticket') {
+                button.setDisabled(true);
+                button.setLabel(`Preuzeo/la: ${interaction.user.username}`);
+            }
+            updatedRow.addComponents(button);
+        });
+
+        await interaction.update({ components: [updatedRow] });
+        await interaction.followUp({ content: `✋ Tiket je preuzeo/la ${interaction.user}.` });
     }
 
+    // --- ZATVARANJE TIKETA ---
     if (interaction.customId === 'close_ticket') {
         await interaction.reply({ content: 'Tiket će biti obrisan za 5 sekundi...' });
-        setTimeout(() => {
-            interaction.channel.delete().catch(() => {});
+        
+        const channelId = interaction.channelId;
+        const guild = interaction.guild;
+
+        setTimeout(async () => {
+            const ch = guild.channels.cache.get(channelId) || await guild.channels.fetch(channelId).catch(() => null);
+            if (ch) ch.delete().catch(() => {});
         }, 5000);
     }
 });
