@@ -35,7 +35,6 @@ const CONFIG = {
     IP_CHANNEL_ID: '1534981459473993918',
 
     // ================= ULOGE (ROLES) =================
-    // Zamijeni 'ID_ROLI_...' sa pravim ID-evima uloga s tvojeg servera
     ROLES: {
         TICKET_SUPPORT: '1534972197620289636', 
         DISCORD_DEV: '1535594365391478794',     
@@ -162,8 +161,12 @@ client.on('messageCreate', async (message) => {
     }
 
     if (message.content === '!close') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-            return message.reply('Samo administracija može ručno zatvoriti tiket komandom!');
+        const allowedRolesList = Object.values(CONFIG.ROLES);
+        const hasPermissionRole = message.member.roles.cache.some(role => allowedRolesList.includes(role.id));
+        const isAdmin = message.member.permissions.has(PermissionsBitField.Flags.Administrator);
+
+        if (!hasPermissionRole && !isAdmin) {
+            return message.reply('Nemaš ovlašćenje za zatvaranje tiketa!');
         }
 
         await message.channel.send('Tiket će biti obrisan za 5 sekundi...');
@@ -183,7 +186,6 @@ client.on('interactionCreate', async (interaction) => {
     if (interaction.customId.startsWith('ticket_')) {
         const categoryType = interaction.customId.replace('ticket_', '');
         
-        // TAČNO PODEŠENI PRISTUPI SVE ODGOVARAJUĆIM ULOGAMA
         const categoriesData = {
             'pitanja': { 
                 name: 'Pitanja / Pomoć', 
@@ -245,14 +247,13 @@ client.on('interactionCreate', async (interaction) => {
 
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-        // Pravljenje permisija za novi kanal
         const permissionOverwrites = [
             {
-                id: interaction.guild.id, // Sakrij od ostatka servera
+                id: interaction.guild.id, 
                 deny: [PermissionsBitField.Flags.ViewChannel]
             },
             {
-                id: interaction.user.id, // Vidljivo osobi koja je otvorila
+                id: interaction.user.id, 
                 allow: [
                     PermissionsBitField.Flags.ViewChannel, 
                     PermissionsBitField.Flags.SendMessages, 
@@ -262,9 +263,8 @@ client.on('interactionCreate', async (interaction) => {
             }
         ];
 
-        // Dodaj dozvole samo navedenim ulogama
         selected.allowedRoles.forEach(roleId => {
-            if (roleId && !roleId.startsWith('ID_ROLI_')) {
+            if (roleId) {
                 permissionOverwrites.push({
                     id: roleId,
                     allow: [
@@ -305,11 +305,7 @@ client.on('interactionCreate', async (interaction) => {
                 .setStyle(ButtonStyle.Danger)
         );
 
-        // Pinguj dozvoljene uloge unutar novootvorenog tiketa
-        const pingRoles = selected.allowedRoles
-            .filter(r => r && !r.startsWith('ID_ROLI_'))
-            .map(r => `<@&${r}>`)
-            .join(' ');
+        const pingRoles = selected.allowedRoles.map(r => `<@&${r}>`).join(' ');
 
         await ticketChannel.send({ 
             content: `${pingRoles ? pingRoles + ' | ' : ''}Tiket otvorio: ${interaction.user}`,
@@ -322,6 +318,17 @@ client.on('interactionCreate', async (interaction) => {
 
     // --- PREUZIMANJE TIKETA ---
     if (interaction.customId === 'claim_ticket') {
+        const allowedRolesList = Object.values(CONFIG.ROLES);
+        const hasPermissionRole = interaction.member.roles.cache.some(role => allowedRolesList.includes(role.id));
+        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+
+        if (!hasPermissionRole && !isAdmin) {
+            return interaction.reply({ 
+                content: 'Nemaš dozvolu da preuzmeš ovaj tiket!', 
+                flags: MessageFlags.Ephemeral 
+            });
+        }
+
         const originalRow = interaction.message.components[0];
         const updatedRow = new ActionRowBuilder();
 
@@ -338,8 +345,19 @@ client.on('interactionCreate', async (interaction) => {
         await interaction.followUp({ content: `✋ Tiket je preuzeo/la ${interaction.user}.` });
     }
 
-    // --- ZATVARANJE TIKETA ---
+    // --- ZATVARANJE TIKETA DUGMETOM ---
     if (interaction.customId === 'close_ticket') {
+        const allowedRolesList = Object.values(CONFIG.ROLES);
+        const hasPermissionRole = interaction.member.roles.cache.some(role => allowedRolesList.includes(role.id));
+        const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
+
+        if (!hasPermissionRole && !isAdmin) {
+            return interaction.reply({ 
+                content: 'Nemaš dozvolu da zatvoriš ovaj tiket!', 
+                flags: MessageFlags.Ephemeral 
+            });
+        }
+
         await interaction.reply({ content: 'Tiket će biti obrisan za 5 sekundi...' });
         
         const channelId = interaction.channelId;
