@@ -1,4 +1,3 @@
-require('dotenv').config();
 const express = require('express');
 const app = express();
 
@@ -45,7 +44,7 @@ const CONFIG = {
         GLAVNI_ZA_LIDERE: '1534972180889338056'
     },
     // ================================================
-     
+    
     CATEGORIES: {
         pitanja: '1534972382379249764',
         donacije: '1534972381032874115',
@@ -55,13 +54,13 @@ const CONFIG = {
         zalbe: '1535056821088161832',
         cheater: '1535056980690075678'
     },
-     
+    
     THUMBNAIL_URL: 'https://i.imgur.com/iswtxsc.png', 
     TICKET_IMAGE_URL: 'https://imgur.com/FOJT2Yo.png'
 };
 // ======================================================
 
-client.once('ready', () => {
+client.once('clientReady', () => {
     console.log(`[USPEH] Bot je online kao: ${client.user.tag}`);
 });
 
@@ -171,7 +170,7 @@ client.on('messageCreate', async (message) => {
         }
 
         await message.channel.send('Tiket će biti obrisan za 5 sekundi...');
-         
+        
         const channelId = message.channel.id;
         setTimeout(async () => {
             const ch = message.guild.channels.cache.get(channelId) || await message.guild.channels.fetch(channelId).catch(() => null);
@@ -186,7 +185,7 @@ client.on('interactionCreate', async (interaction) => {
 
     if (interaction.customId.startsWith('ticket_')) {
         const categoryType = interaction.customId.replace('ticket_', '');
-         
+        
         const categoriesData = {
             'pitanja': { 
                 name: 'Pitanja / Pomoć', 
@@ -360,7 +359,7 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         await interaction.reply({ content: 'Tiket će biti obrisan za 5 sekundi...' });
-         
+        
         const channelId = interaction.channelId;
         const guild = interaction.guild;
 
