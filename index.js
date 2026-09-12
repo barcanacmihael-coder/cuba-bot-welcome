@@ -161,6 +161,14 @@ client.on('messageCreate', async (message) => {
     }
 
     if (message.content === '!close') {
+        // Provera da li se komanda izvršava unutar otvorenog tiketa
+        const ticketPrefixes = ['pitanja-', 'donacije-', 'staff-', 'unban-', 'prijava-org-', 'zalba-', 'cheater-'];
+        const isTicketChannel = ticketPrefixes.some(prefix => message.channel.name.startsWith(prefix));
+
+        if (!isTicketChannel) {
+            return message.reply('❌ Ovu komandu možeš koristiti samo unutar otvorenih tiketa!');
+        }
+
         const allowedRolesList = Object.values(CONFIG.ROLES);
         const hasPermissionRole = message.member.roles.cache.some(role => allowedRolesList.includes(role.id));
         const isAdmin = message.member.permissions.has(PermissionsBitField.Flags.Administrator);
