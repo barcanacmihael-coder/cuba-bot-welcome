@@ -25,7 +25,7 @@ const client = new Client({
     ]
 });
 
-// ================= === PODEŠAVANJA ====================
+//PODEŠAVANJA 
 const CONFIG = {
     TOKEN: process.env.DISCORD_TOKEN,
     WELCOME_CHANNEL_ID: '1534981849775079435',
@@ -34,7 +34,7 @@ const CONFIG = {
     TICKET_PANEL_CHANNEL_ID: '1534983734539849950',
     IP_CHANNEL_ID: '1534981459473993918',
 
-    // ================= ULOGE (ROLES) =================
+    //rolovi
     ROLES: {
         TICKET_SUPPORT: '1534972197620289636', 
         DISCORD_DEV: '1544074229027180584',     
@@ -43,7 +43,7 @@ const CONFIG = {
         ELECTRON_AC: '1534972176225140856',
         GLAVNI_ZA_LIDERE: '1534972180889338056'
     },
-    // ================================================
+    //kategorije
     
     CATEGORIES: {
         pitanja: '1534972382379249764',
@@ -58,13 +58,12 @@ const CONFIG = {
     THUMBNAIL_URL: 'https://i.imgur.com/iswtxsc.png', 
     TICKET_IMAGE_URL: 'https://imgur.com/FOJT2Yo.png'
 };
-// ======================================================
+
 
 client.once('clientReady', () => {
     console.log(`[USPEH] Bot je online kao: ${client.user.tag}`);
 });
 
-// 1. WELCOME PORUKA
 client.on('guildMemberAdd', async (member) => {
     const channel = member.guild.channels.cache.get(CONFIG.WELCOME_CHANNEL_ID);
     if (!channel) return;
@@ -121,7 +120,7 @@ client.on('guildMemberAdd', async (member) => {
     }).catch(err => console.error('Greška pri slanju welcome poruke:', err));
 });
 
-// 2. KOMANDE (!setup-ticket I !close)
+
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
 
@@ -161,7 +160,7 @@ client.on('messageCreate', async (message) => {
     }
 
     if (message.content === '!close') {
-        // Provera da li se komanda izvršava unutar otvorenog tiketa
+        
         const ticketPrefixes = ['pitanja-', 'donacije-', 'staff-', 'unban-', 'prijava-org-', 'zalba-', 'cheater-'];
         const isTicketChannel = ticketPrefixes.some(prefix => message.channel.name.startsWith(prefix));
 
@@ -187,7 +186,7 @@ client.on('messageCreate', async (message) => {
     }
 });
 
-// 3. RUKOVANJE TIKETIMA I PRISTUPNIM DOZVOLAMA
+
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isButton()) return;
 
@@ -324,7 +323,7 @@ client.on('interactionCreate', async (interaction) => {
         await interaction.editReply({ content: `Vaš ticket (${selected.name}) je uspešno otvoren: ${ticketChannel}` });
     }
 
-    // --- PREUZIMANJE TIKETA ---
+    
     if (interaction.customId === 'claim_ticket') {
         const allowedRolesList = Object.values(CONFIG.ROLES);
         const hasPermissionRole = interaction.member.roles.cache.some(role => allowedRolesList.includes(role.id));
@@ -353,7 +352,7 @@ client.on('interactionCreate', async (interaction) => {
         await interaction.followUp({ content: `✋ Tiket je preuzeo/la ${interaction.user}.` });
     }
 
-    // --- ZATVARANJE TIKETA DUGMETOM ---
+    
     if (interaction.customId === 'close_ticket') {
         const allowedRolesList = Object.values(CONFIG.ROLES);
         const hasPermissionRole = interaction.member.roles.cache.some(role => allowedRolesList.includes(role.id));
